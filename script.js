@@ -1,42 +1,51 @@
 const display = document.getElementById('display');
 const buttons = document.querySelectorAll('.btn');
 
-let expression = '';
-let currentNumber = '0';
-let previousNumber = null;
+let currentValue = '0';
+let previousValue = null;
 let operator = null;
-let shouldResetDisplay = false;
+let waitingForSecondOperand = false;
 
 function updateDisplay() {
-  display.textContent = expression + currentNumber;
+  if (waitingForSecondOperand && previousValue !== null) {
+    display.textContent = `${previousValue} ${operator} `;
+    return;
+  }
+
+  if (operator && previousValue !== null) {
+    display.textContent = `${previousValue} ${operator} ${currentValue}`;
+    return;
+  }
+
+  display.textContent = currentValue;
 }
 
 function inputNumber(value) {
-  if (shouldResetDisplay) {
-    currentNumber = value;
-    shouldResetDisplay = false;
+  if (waitingForSecondOperand) {
+    currentValue = value;
+    waitingForSecondOperand = false;
   } else {
-    currentNumber = currentNumber === '0' ? value : currentNumber + value;
+    currentValue = currentValue === '0' ? value : currentValue + value;
   }
 
   updateDisplay();
 }
 
 function inputDecimal() {
-  if (shouldResetDisplay) {
-    currentNumber = '0.';
-    shouldResetDisplay = false;
+  if (waitingForSecondOperand) {
+    currentValue = '0.';
+    waitingForSecondOperand = false;
     updateDisplay();
     return;
   }
 
-  if (!currentNumber.includes('.')) {
-    currentNumber += '.';
+  if (!currentValue.includes('.')) {
+    currentValue += '.';
     updateDisplay();
   }
 }
 
-function performCalculation(prev, current, op) {
+function calculate(prev, current, op) {
   switch (op) {
     case '+':
       return prev + current;
@@ -52,65 +61,63 @@ function performCalculation(prev, current, op) {
 }
 
 function handleOperator(nextOperator) {
-  const inputValue = Number(currentNumber);
+  const inputValue = Number(currentValue);
 
-  if (previousNumber !== null && operator && !shouldResetDisplay) {
-    // Если уже есть оператор, вычислим промежуточный результат
-    const result = performCalculation(previousNumber, inputValue, operator);
-    expression = `${result} ${nextOperator} `;
-    previousNumber = result;
-  } else {
-    // Первый раз вводим оператор
-    previousNumber = inputValue;
-    expression = `${currentNumber} ${nextOperator} `;
+  if (operator !== null && !waitingForSecondOperand) {
+    const result = calculate(previousValue, inputValue, operator);
+    previousValue = result;
+    currentValue = String(result);
+    operator = nextOperator;
+    waitingForSecondOperand = true;
+    updateDisplay();
+    return;
   }
 
-  currentNumber = '0';
+  previousValue = inputValue;
   operator = nextOperator;
-  shouldResetDisplay = true;
+  currentValue = '0';
+  waitingForSecondOperand = true;
   updateDisplay();
 }
 
 function clearAll() {
-  expression = '';
-  currentNumber = '0';
-  previousNumber = null;
+  currentValue = '0';
+  previousValue = null;
   operator = null;
-  shouldResetDisplay = false;
+  waitingForSecondOperand = false;
   updateDisplay();
 }
 
 function deleteLast() {
-  if (shouldResetDisplay) return;
+  if (waitingForSecondOperand) return;
 
-  if (currentNumber.length > 1) {
-    currentNumber = currentNumber.slice(0, -1);
+  if (currentValue.length > 1) {
+    currentValue = currentValue.slice(0, -1);
   } else {
-    currentNumber = '0';
+    currentValue = '0';
   }
 
   updateDisplay();
 }
 
 function percentage() {
-  currentNumber = String(Number(currentNumber) / 100);
+  currentValue = String(Number(currentValue) / 100);
   updateDisplay();
 }
 
 function handleEquals() {
-  if (previousNumber === null || operator === null) {
+  if (operator === null || previousValue === null) {
     return;
   }
 
-  const inputValue = Number(currentNumber);
-  const result = performCalculation(previousNumber, inputValue, operator);
+  const inputValue = Number(currentValue);
+  const result = calculate(previousValue, inputValue, operator);
 
-  currentNumber = String(result);
-  expression = `${previousNumber} ${operator} ${inputValue} = `;
-  previousNumber = null;
+  display.textContent = `${previousValue} ${operator} ${inputValue} = ${result}`;
+  currentValue = String(result);
+  previousValue = null;
   operator = null;
-  shouldResetDisplay = true;
-  updateDisplay();
+  waitingForSecondOperand = false;
 }
 
 buttons.forEach((button) => {
