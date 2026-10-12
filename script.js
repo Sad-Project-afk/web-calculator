@@ -57,7 +57,6 @@ function handleOperator(nextOperator) {
   if (previousNumber !== null && operator && !shouldResetDisplay) {
     // Если уже есть оператор, вычислим промежуточный результат
     const result = performCalculation(previousNumber, inputValue, operator);
-    currentNumber = String(result);
     expression = `${result} ${nextOperator} `;
     previousNumber = result;
   } else {
@@ -66,6 +65,7 @@ function handleOperator(nextOperator) {
     expression = `${currentNumber} ${nextOperator} `;
   }
 
+  currentNumber = '0';
   operator = nextOperator;
   shouldResetDisplay = true;
   updateDisplay();
