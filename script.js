@@ -1,113 +1,117 @@
 const display = document.getElementById('display');
 const buttons = document.querySelectorAll('.btn');
 
-let currentValue = '0';
-let storedValue = null;
+let expression = '';
+let currentNumber = '0';
+let previousNumber = null;
 let operator = null;
-let waitingForNewValue = false;
+let shouldResetDisplay = false;
 
 function updateDisplay() {
-  display.textContent = currentValue;
+  if (expression && !shouldResetDisplay) {
+    display.textContent = expression + currentNumber;
+  } else if (expression && shouldResetDisplay) {
+    display.textContent = expression + currentNumber;
+  } else {
+    display.textContent = currentNumber;
+  }
 }
 
 function inputNumber(value) {
-  if (waitingForNewValue) {
-    currentValue = value;
-    waitingForNewValue = false;
+  if (shouldResetDisplay) {
+    currentNumber = value;
+    shouldResetDisplay = false;
   } else {
-    currentValue = currentValue === '0' ? value : currentValue + value;
+    currentNumber = currentNumber === '0' ? value : currentNumber + value;
   }
 
   updateDisplay();
 }
 
 function inputDecimal() {
-  if (waitingForNewValue) {
-    currentValue = '0.';
-    waitingForNewValue = false;
-    updateDisplay();
-    return;
+  if (shouldResetDisplay) {
+    currentNumber = '0.';
+    shouldResetDisplay = false;
+  } else if (!currentNumber.includes('.')) {
+    currentNumber += '.';
   }
 
-  if (!currentValue.includes('.')) {
-    currentValue += '.';
-    updateDisplay();
-  }
+  updateDisplay();
 }
 
-function performCalculation() {
-  const inputValue = Number(currentValue);
-
-  if (storedValue === null || operator === null) {
-    return inputValue;
-  }
-
-  switch (operator) {
+function performCalculation(prev, current, op) {
+  switch (op) {
     case '+':
-      return storedValue + inputValue;
+      return prev + current;
     case '-':
-      return storedValue - inputValue;
+      return prev - current;
     case '*':
-      return storedValue * inputValue;
+      return prev * current;
     case '/':
-      return inputValue === 0 ? 'Ошибка' : storedValue / inputValue;
+      return current === 0 ? 'Ошибка' : prev / current;
     default:
-      return inputValue;
+      return current;
   }
 }
 
 function handleOperator(nextOperator) {
-  const inputValue = Number(currentValue);
-
-  if (storedValue === null) {
-    storedValue = inputValue;
-  } else if (!waitingForNewValue) {
-    const result = performCalculation();
-    currentValue = String(result);
-    storedValue = result;
+  if (previousNumber !== null && operator !== null && !shouldResetDisplay) {
+    const result = performCalculation(previousNumber, Number(currentNumber), operator);
+    expression = `${previousNumber} ${operator} ${currentNumber} = `;
+    currentNumber = String(result);
+    previousNumber = Number(currentNumber);
+    operator = nextOperator;
+    shouldResetDisplay = true;
+    updateDisplay();
+    return;
   }
 
+  previousNumber = Number(currentNumber);
   operator = nextOperator;
-  waitingForNewValue = true;
+  expression = `${currentNumber} ${operator} `;
+  shouldResetDisplay = true;
   updateDisplay();
 }
 
 function clearAll() {
-  currentValue = '0';
-  storedValue = null;
+  expression = '';
+  currentNumber = '0';
+  previousNumber = null;
   operator = null;
-  waitingForNewValue = false;
+  shouldResetDisplay = false;
   updateDisplay();
 }
 
 function deleteLast() {
-  if (waitingForNewValue) return;
+  if (shouldResetDisplay) return;
 
-  if (currentValue.length > 1) {
-    currentValue = currentValue.slice(0, -1);
+  if (currentNumber.length > 1) {
+    currentNumber = currentNumber.slice(0, -1);
   } else {
-    currentValue = '0';
+    currentNumber = '0';
   }
 
   updateDisplay();
 }
 
 function percentage() {
-  const value = Number(currentValue) / 100;
-  currentValue = String(value);
+  currentNumber = String(Number(currentNumber) / 100);
   updateDisplay();
 }
 
 function handleEquals() {
-  if (operator === null || waitingForNewValue) {
+  if (previousNumber === null || operator === null) {
     return;
   }
 
-  const result = performCalculation();
-  currentValue = String(result);
-  storedValue = null;
+  const inputValue = Number(currentNumber);
+  const result = performCalculation(previousNumber, inputValue, operator);
+
+  expression = `${previousNumber} ${operator} ${currentNumber} = `;
+  currentNumber = String(result);
+  previousNumber = null;
   operator = null;
-  waitingForNewValue = false;
+  shouldResetDisplay = true;
   updateDisplay();
 }
 
