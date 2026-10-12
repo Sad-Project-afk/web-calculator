@@ -8,13 +8,7 @@ let operator = null;
 let shouldResetDisplay = false;
 
 function updateDisplay() {
-  if (expression && !shouldResetDisplay) {
-    display.textContent = expression + currentNumber;
-  } else if (expression && shouldResetDisplay) {
-    display.textContent = expression + currentNumber;
-  } else {
-    display.textContent = currentNumber;
-  }
+  display.textContent = expression + currentNumber;
 }
 
 function inputNumber(value) {
@@ -32,11 +26,14 @@ function inputDecimal() {
   if (shouldResetDisplay) {
     currentNumber = '0.';
     shouldResetDisplay = false;
-  } else if (!currentNumber.includes('.')) {
-    currentNumber += '.';
+    updateDisplay();
+    return;
   }
 
-  updateDisplay();
+  if (!currentNumber.includes('.')) {
+    currentNumber += '.';
+    updateDisplay();
+  }
 }
 
 function performCalculation(prev, current, op) {
@@ -55,20 +52,21 @@ function performCalculation(prev, current, op) {
 }
 
 function handleOperator(nextOperator) {
-  if (previousNumber !== null && operator !== null && !shouldResetDisplay) {
-    const result = performCalculation(previousNumber, Number(currentNumber), operator);
-    expression = `${previousNumber} ${operator} ${currentNumber} = `;
+  const inputValue = Number(currentNumber);
+
+  if (previousNumber !== null && operator && !shouldResetDisplay) {
+    // Если уже есть оператор, вычислим промежуточный результат
+    const result = performCalculation(previousNumber, inputValue, operator);
     currentNumber = String(result);
-    previousNumber = Number(currentNumber);
-    operator = nextOperator;
-    shouldResetDisplay = true;
-    updateDisplay();
-    return;
+    expression = `${result} ${nextOperator} `;
+    previousNumber = result;
+  } else {
+    // Первый раз вводим оператор
+    previousNumber = inputValue;
+    expression = `${currentNumber} ${nextOperator} `;
   }
 
-  previousNumber = Number(currentNumber);
   operator = nextOperator;
-  expression = `${currentNumber} ${operator} `;
   shouldResetDisplay = true;
   updateDisplay();
 }
@@ -107,8 +105,8 @@ function handleEquals() {
   const inputValue = Number(currentNumber);
   const result = performCalculation(previousNumber, inputValue, operator);
 
-  expression = `${previousNumber} ${operator} ${currentNumber} = `;
   currentNumber = String(result);
+  expression = `${previousNumber} ${operator} ${inputValue} = `;
   previousNumber = null;
   operator = null;
   shouldResetDisplay = true;
