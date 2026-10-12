@@ -1,123 +1,172 @@
 const display = document.getElementById('display');
 const buttons = document.querySelectorAll('.btn');
 
-let currentValue = '0';
-let previousValue = null;
-let operator = null;
-let waitingForSecondOperand = false;
+let expression = '';
+let justEvaluated = false;
 
 function updateDisplay() {
-  if (waitingForSecondOperand && previousValue !== null) {
-    display.textContent = `${previousValue} ${operator} `;
-    return;
+  display.textContent = expression || '0';
+}
+
+function appendToken(token) {
+  if (justEvaluated) {
+    expression = '';
+    justEvaluated = false;
   }
 
-  if (operator && previousValue !== null) {
-    display.textContent = `${previousValue} ${operator} ${currentValue}`;
-    return;
-  }
+  expression += token;
+  updateDisplay();
+}
 
-  display.textContent = currentValue;
+function isOperator(char) {
+  return ['+', '-', '*', '/'].includes(char);
 }
 
 function inputNumber(value) {
-  if (waitingForSecondOperand) {
-    currentValue = value;
-    waitingForSecondOperand = false;
+  if (justEvaluated) {
+    expression = '';
+    justEvaluated = false;
+  }
+
+  if (expression === '0' && value === '0') {
+    return;
+  }
+
+  if (expression === '0') {
+    expression = value;
   } else {
-    currentValue = currentValue === '0' ? value : currentValue + value;
+    expression += value;
   }
 
   updateDisplay();
 }
 
 function inputDecimal() {
-  if (waitingForSecondOperand) {
-    currentValue = '0.';
-    waitingForSecondOperand = false;
+  if (justEvaluated) {
+    expression = '';
+    justEvaluated = false;
+  }
+
+  if (!expression) {
+    expression = '0.';
     updateDisplay();
     return;
   }
 
-  if (!currentValue.includes('.')) {
-    currentValue += '.';
-    updateDisplay();
-  }
-}
+  const lastToken = expression.split(/([+\-*/()])/).pop();
 
-function calculate(prev, current, op) {
-  switch (op) {
-    case '+':
-      return prev + current;
-    case '-':
-      return prev - current;
-    case '*':
-      return prev * current;
-    case '/':
-      return current === 0 ? 'Ошибка' : prev / current;
-    default:
-      return current;
-  }
-}
-
-function handleOperator(nextOperator) {
-  const inputValue = Number(currentValue);
-
-  if (operator !== null && !waitingForSecondOperand) {
-    const result = calculate(previousValue, inputValue, operator);
-    previousValue = result;
-    currentValue = String(result);
-    operator = nextOperator;
-    waitingForSecondOperand = true;
-    updateDisplay();
+  if (lastToken && lastToken.includes('.')) {
     return;
   }
 
-  previousValue = inputValue;
-  operator = nextOperator;
-  currentValue = '0';
-  waitingForSecondOperand = true;
+  if (/[+\-*/(]$/.test(expression)) {
+    expression += '0.';
+  } else {
+    expression += '.';
+  }
+
+  updateDisplay();
+}
+
+function handleOperator(value) {
+  if (!expression) return;
+
+  if (isOperator(expression.slice(-1))) {
+    expression = expression.slice(0, -1) + value;
+  } else {
+    expression += value;
+  }
+
+  justEvaluated = false;
+  updateDisplay();
+}
+
+function handleLeftParen() {
+  if (!expression || isOperator(expression.slice(-1)) || expression.endsWith('(')) {
+    expression += '(';
+  } else {
+    expression += '*(';
+  }
+
+  justEvaluated = false;
+  updateDisplay();
+}
+
+function handleRightParen() {
+  if (!expression || /[+\-*/(]$/.test(expression)) return;
+  const openCount = (expression.match(/\(/g) || []).length;
+  const closeCount = (expression.match(/\)/g) || []).length;
+
+  if (openCount <= closeCount) return;
+
+  expression += ')';
+  justEvaluated = false;
   updateDisplay();
 }
 
 function clearAll() {
-  currentValue = '0';
-  previousValue = null;
-  operator = null;
-  waitingForSecondOperand = false;
+  expression = '';
+  justEvaluated = false;
   updateDisplay();
 }
 
 function deleteLast() {
-  if (waitingForSecondOperand) return;
+  if (!expression) return;
 
-  if (currentValue.length > 1) {
-    currentValue = currentValue.slice(0, -1);
-  } else {
-    currentValue = '0';
+  expression = expression.slice(0, -1);
+
+  if (!expression) {
+    expression = '0';
   }
 
+  justEvaluated = false;
   updateDisplay();
+}
+
+function evaluateExpression(rawExpression) {
+  const sanitized = rawExpression
+    .replace(/×/g, '*')
+    .replace(/÷/g, '/')
+    .replace(/−/g, '-');
+
+  // eslint-disable-next-line no-new-func
+  return Function(`"use strict"; return (${sanitized});`)();
 }
 
 function percentage() {
-  currentValue = String(Number(currentValue) / 100);
-  updateDisplay();
+  if (!expression) return;
+
+  try {
+    const value = evaluateExpression(expression);
+    expression = String(value / 100);
+    justEvaluated = true;
+    updateDisplay();
+  } catch (error) {
+    expression = 'Ошибка';
+    justEvaluated = true;
+    updateDisplay();
+  }
 }
 
 function handleEquals() {
-  if (operator === null || previousValue === null) {
-    return;
+  if (!expression) return;
+
+  try {
+    const result = evaluateExpression(expression);
+
+    if (!Number.isFinite(result)) {
+      expression = 'Ошибка';
+    } else {
+      expression = String(result);
+    }
+
+    justEvaluated = true;
+    updateDisplay();
+  } catch (error) {
+    expression = 'Ошибка';
+    justEvaluated = true;
+    updateDisplay();
   }
-
-  const inputValue = Number(currentValue);
-  const result = calculate(previousValue, inputValue, operator);
-
-  display.textContent = `${previousValue} ${operator} ${inputValue} = ${result}`;
-  currentValue = String(result);
-  previousValue = null;
-  operator = null;
-  waitingForSecondOperand = false;
 }
 
 buttons.forEach((button) => {
@@ -130,18 +179,23 @@ buttons.forEach((button) => {
       return;
     }
 
-    if (action === 'decimal') {
-      inputDecimal();
-      return;
-    }
-
     if (action === 'operator') {
       handleOperator(value);
       return;
     }
 
-    if (action === 'equals') {
-      handleEquals();
+    if (action === 'decimal') {
+      inputDecimal();
+      return;
+    }
+
+    if (action === 'left-paren') {
+      handleLeftParen();
+      return;
+    }
+
+    if (action === 'right-paren') {
+      handleRightParen();
       return;
     }
 
@@ -157,6 +211,11 @@ buttons.forEach((button) => {
 
     if (action === 'percent') {
       percentage();
+      return;
+    }
+
+    if (action === 'equals') {
+      handleEquals();
     }
   });
 });
@@ -172,6 +231,14 @@ document.addEventListener('keydown', (event) => {
 
   if (['+', '-', '*', '/'].includes(event.key)) {
     handleOperator(event.key);
+  }
+
+  if (event.key === '(') {
+    handleLeftParen();
+  }
+
+  if (event.key === ')') {
+    handleRightParen();
   }
 
   if (event.key === 'Enter' || event.key === '=') {
